@@ -678,6 +678,42 @@
             roundsInput.addEventListener('change', validateInputs);
             questionsPerRoundInput.addEventListener('change', validateInputs);
         });
+
+
+          document.addEventListener('DOMContentLoaded', function() {
+            // Get elements
+            const uploadButton = document.getElementById('uploadButton');
+            const fileInput = document.getElementById('fileInput');
+            
+            // Direct click handler for upload button
+            if (uploadButton) {
+                uploadButton.onclick = function() {
+                    console.log('Upload button clicked');
+                    if (fileInput) {
+                        fileInput.click();
+                    } else {
+                        console.error('File input element not found');
+                    }
+                };
+            } else {
+                console.error('Upload button element not found');
+            }
+            
+            // Make the "Paste JSON Data Directly" option visible by default on Vercel
+            const jsonInputContainer = document.getElementById('jsonInputContainer');
+            if (jsonInputContainer) {
+                jsonInputContainer.style.display = 'block';
+            }
+            
+            // Display a helpful message
+            const welcomeScreen = document.querySelector('.welcome-screen');
+            if (welcomeScreen) {
+                const helpMsg = document.createElement('p');
+                helpMsg.innerHTML = '<strong>Tip:</strong> If the upload button doesn\'t work, please use the "Paste JSON Data Directly" option below.';
+                helpMsg.style.color = '#e74c3c';
+                welcomeScreen.insertBefore(helpMsg, document.querySelector('.or-divider'));
+            }
+        });
         
         // Functions
         function handleFileUpload(event) {
