@@ -89,12 +89,20 @@
             font-weight: bold;
         }
 
-        select, input {
+        input {
             width: 100%;
             padding: 8px;
             margin: 5px 0 15px;
             border: 1px solid #ddd;
             border-radius: 4px;
+        }
+        
+        .info-text {
+            background-color: #e8f4f8;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            border-left: 4px solid #3498db;
         }
     </style>
 </head>
@@ -117,16 +125,15 @@
     <div id="setupScreen" class="screen card">
         <h2>Quiz Setup</h2>
         
-        <label for="topicSelect">Select Topic:</label>
-        <select id="topicSelect"></select>
+        <div class="info-text">
+            <p id="totalQuestionsInfo">Total available questions: 0</p>
+        </div>
         
         <label for="roundsInput">Number of Rounds:</label>
         <input type="number" id="roundsInput" min="1" max="10" value="3">
         
         <label for="questionsPerRoundInput">Questions per Round:</label>
         <input type="number" id="questionsPerRoundInput" min="1" max="20" value="5">
-        
-        <p id="availableQuestions">Available questions: 0</p>
         
         <button id="startQuizBtn">Start Quiz</button>
         <button id="backBtn">Back</button>
@@ -187,33 +194,25 @@
                 { "number": "1", "question": "Give two sources of fire?", "answer": "1. Sparks 2. Flames. 3. Hot Surfaces. 4. Radiant Heat." },
                 { "number": "2", "question": "Name the elements that comprise the triangle of fire?", "answer": "Fuel, Heat, and Oxygen." },
                 { "number": "3", "question": "Name two means by which heat may be transmitted and result in a spread of fire?", "answer": "Radiation, Conduction, and Convection." },
-                { "number": "4", "question": "A flammable vapour or gas will only ignite or explode in air if the Air:Fuel ratio is in the correct proportions. How are these limits normally expressed?", "answer": "1. L.E.L. - Lower Explosive Limit. 2. U.E.L. - Upper Explosive Limit." },
-                { "number": "5", "question": "Give two requirements regarding fire exits?", "answer": "1. Clearly Marked. 2. Open Outwards or Slide. 3. Be Kept Clear. 4. Be Always Available." },
-                { "number": "6", "question": "Name two types of security fastenings acceptable on fire exit doors?", "answer": "1. Panic Bolts. 2. Panic Latches. 3. Alarm Locks. 4. Glass Bolts. 5. Ordinary Ball Catches." },
-                { "number": "7", "question": "What type of extinguisher is best suited to free flowing liquid fires?", "answer": "Dry Powder." },
-                { "number": "8", "question": "How do dry powder extinguishers extinguish fires?", "answer": "By stopping chain flame reaction and smothering." }
+                { "number": "4", "question": "A flammable vapour or gas will only ignite or explode in air if the Air:Fuel ratio is in the correct proportions. How are these limits normally expressed?", "answer": "1. L.E.L. - Lower Explosive Limit. 2. U.E.L. - Upper Explosive Limit." }
             ],
             "FIRST AID": [
                 { "number": "1", "question": "What is the initial first aid treatment for acid burns?", "answer": "Flood the area with slowly running water for 20 minutes. Gently remove contaminated clothing while flooding the area." },
                 { "number": "2", "question": "What are the two primary objectives of First Aid treatment?", "answer": "Sustain life Prevent a situation from becoming worse Promote recovery." },
                 { "number": "3", "question": "Who must be in charge of a First Aid box?", "answer": "A responsible or trained person." },
-                { "number": "4", "question": "What special warning would you give to a casualty with suspected spinal injuries?", "answer": "Not to attempt to get up or move." },
-                { "number": "5", "question": "What must a first aider always treat for and why?", "answer": "Shock - Shock can prove fatal unless measures are taken to counteract it." },
-                { "number": "6", "question": "Under what circumstances is it permissible to move a seriously injured person?", "answer": "If there is further danger by leaving them where they are." },
-                { "number": "7", "question": "Where is the Humerus?", "answer": "In the upper arm." },
-                { "number": "8", "question": "Where is the Radius?", "answer": "In the forearm." }
+                { "number": "4", "question": "What special warning would you give to a casualty with suspected spinal injuries?", "answer": "Not to attempt to get up or move." }
             ]
         };
 
         // App state
         let quizData = null;
-        let selectedTopic = '';
+        let allQuestions = [];
         let rounds = 3;
         let questionsPerRound = 5;
         let currentRound = 0;
         let currentQuestion = 0;
         let roundQuestions = [];
-        let allRoundQuestions = [];
+        let usedQuestions = [];
         let answeredQuestions = 0;
 
         // DOM Elements
@@ -232,7 +231,6 @@
             // Setup screen
             document.getElementById('startQuizBtn').addEventListener('click', startQuiz);
             document.getElementById('backBtn').addEventListener('click', goBackToWelcome);
-            document.getElementById('topicSelect').addEventListener('change', updateAvailableQuestions);
             
             // Quiz screen
             document.getElementById('showAnswerBtn').addEventListener('click', showAnswer);
@@ -260,7 +258,7 @@
 
         function useSampleData() {
             quizData = JSON.parse(JSON.stringify(sampleData)); // Deep copy
-            setupQuizScreen();
+            processQuizData();
         }
 
         function loadJsonData() {
@@ -272,7 +270,7 @@
             
             try {
                 quizData = JSON.parse(jsonText);
-                setupQuizScreen();
+                processQuizData();
             } catch (err) {
                 showError(`Error parsing JSON: ${err.message}`);
             }
@@ -284,71 +282,34 @@
             errorMsg.style.display = 'block';
         }
 
-        function setupQuizScreen() {
-            const topicSelect = document.getElementById('topicSelect');
-            topicSelect.innerHTML = '';
+        function processQuizData() {
+            // Extract all questions from all categories into a single array
+            allQuestions = [];
             
-            const topics = Object.keys(quizData);
-            if (topics.length === 0) {
-                showError("No topics found in the quiz data.");
+            for (const category in quizData) {
+                if (Array.isArray(quizData[category])) {
+                    allQuestions = allQuestions.concat(quizData[category]);
+                }
+            }
+            
+            // If no questions found
+            if (allQuestions.length === 0) {
+                showError("No questions found in the quiz data.");
                 return;
             }
             
-            topics.forEach(topic => {
-                const option = document.createElement('option');
-                option.value = topic;
-                option.textContent = topic;
-                topicSelect.appendChild(option);
-            });
+            // Update total questions info
+            document.getElementById('totalQuestionsInfo').textContent = `Total available questions: ${allQuestions.length}`;
             
-            // Set default topic
-            selectedTopic = topics[0];
-            topicSelect.value = selectedTopic;
+            // Update max values for inputs
+            const maxRounds = Math.max(1, Math.floor(allQuestions.length / questionsPerRound));
+            document.getElementById('roundsInput').max = maxRounds;
             
-            // Update available questions count
-            updateAvailableQuestions();
+            const maxQuestionsPerRound = Math.min(20, allQuestions.length);
+            document.getElementById('questionsPerRoundInput').max = maxQuestionsPerRound;
             
             // Show setup screen
             showScreen('setupScreen');
-        }
-
-        function updateAvailableQuestions() {
-            selectedTopic = document.getElementById('topicSelect').value;
-            const topicQuestions = quizData[selectedTopic] || [];
-            document.getElementById('availableQuestions').textContent = `Available questions: ${topicQuestions.length}`;
-            
-            // Update max values for inputs
-            const maxRounds = Math.max(1, Math.floor(topicQuestions.length / questionsPerRound));
-            document.getElementById('roundsInput').max = maxRounds;
-            
-            const maxQuestionsPerRound = Math.min(20, topicQuestions.length);
-            document.getElementById('questionsPerRoundInput').max = maxQuestionsPerRound;
-            
-            validateInputs();
-        }
-
-        function validateInputs() {
-            const topicQuestions = quizData[selectedTopic] || [];
-            
-            rounds = parseInt(document.getElementById('roundsInput').value);
-            questionsPerRound = parseInt(document.getElementById('questionsPerRoundInput').value);
-            
-            // Ensure we don't exceed available questions
-            const totalQuestions = rounds * questionsPerRound;
-            if (totalQuestions > topicQuestions.length) {
-                if (topicQuestions.length === 0) {
-                    rounds = 0;
-                    questionsPerRound = 0;
-                } else if (questionsPerRound > topicQuestions.length) {
-                    questionsPerRound = topicQuestions.length;
-                    rounds = 1;
-                } else {
-                    rounds = Math.floor(topicQuestions.length / questionsPerRound);
-                }
-                
-                document.getElementById('roundsInput').value = rounds;
-                document.getElementById('questionsPerRoundInput').value = questionsPerRound;
-            }
         }
 
         function goBackToWelcome() {
@@ -361,17 +322,31 @@
             questionsPerRound = parseInt(document.getElementById('questionsPerRoundInput').value);
             
             // Validate inputs
-            validateInputs();
+            const totalQuestions = rounds * questionsPerRound;
+            if (totalQuestions > allQuestions.length) {
+                if (allQuestions.length === 0) {
+                    rounds = 0;
+                    questionsPerRound = 0;
+                } else if (questionsPerRound > allQuestions.length) {
+                    questionsPerRound = allQuestions.length;
+                    rounds = 1;
+                } else {
+                    rounds = Math.floor(allQuestions.length / questionsPerRound);
+                }
+                
+                document.getElementById('roundsInput').value = rounds;
+                document.getElementById('questionsPerRoundInput').value = questionsPerRound;
+            }
             
             if (rounds <= 0 || questionsPerRound <= 0) {
-                showError("Not enough questions available. Please select a different topic or reduce the number of rounds/questions.");
+                showError("Not enough questions available. Please load more questions or reduce the number of rounds/questions.");
                 return;
             }
             
             // Reset quiz state
             currentRound = 0;
             currentQuestion = 0;
-            allRoundQuestions = [];
+            usedQuestions = [];
             answeredQuestions = 0;
             
             // Start the first round
@@ -385,26 +360,23 @@
             currentRound++;
             currentQuestion = 0;
             
-            // Get available questions for the topic
-            const topicQuestions = [...quizData[selectedTopic]];
-            
-            // Remove already used questions
-            const filteredQuestions = topicQuestions.filter(question => 
-                !allRoundQuestions.some(q => q.number === question.number)
+            // Get available questions (excluding already used questions)
+            const availableQuestions = allQuestions.filter(question => 
+                !usedQuestions.some(q => q.number === question.number && q.question === question.question)
             );
             
             // Randomly select questions for this round
             roundQuestions = [];
             for (let i = 0; i < questionsPerRound; i++) {
-                if (filteredQuestions.length === 0) break;
+                if (availableQuestions.length === 0) break;
                 
-                const randomIndex = Math.floor(Math.random() * filteredQuestions.length);
-                roundQuestions.push(filteredQuestions[randomIndex]);
-                filteredQuestions.splice(randomIndex, 1);
+                const randomIndex = Math.floor(Math.random() * availableQuestions.length);
+                roundQuestions.push(availableQuestions[randomIndex]);
+                availableQuestions.splice(randomIndex, 1);
             }
             
-            // Add to overall collection
-            allRoundQuestions = [...allRoundQuestions, ...roundQuestions];
+            // Add to used questions
+            usedQuestions = usedQuestions.concat(roundQuestions);
             
             // Update UI
             document.getElementById('roundDisplay').textContent = `Round ${currentRound} of ${rounds}`;
@@ -482,7 +454,7 @@
             showScreen('finalScreen');
             
             // Display final score
-            const totalQuestions = rounds * questionsPerRound;
+            const totalQuestions = usedQuestions.length;
             const scorePercentage = Math.round((answeredQuestions / totalQuestions) * 100);
             document.getElementById('finalScore').textContent = 
                 `You viewed answers for ${answeredQuestions} out of ${totalQuestions} questions (${scorePercentage}%)`;
@@ -495,11 +467,8 @@
             // Reset state
             currentRound = 0;
             currentQuestion = 0;
-            allRoundQuestions = [];
+            usedQuestions = [];
             answeredQuestions = 0;
-            
-            // Update available questions
-            updateAvailableQuestions();
         }
     </script>
 </body>
